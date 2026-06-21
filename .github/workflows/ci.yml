@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  swift:
+    name: Swift package
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Validate package manifest
+        run: swift package dump-package > /tmp/NemotronCoreAI-package.json
+
+      - name: Check formatting
+        run: xcrun swift-format lint --strict --recursive Sources Tests
+
+      - name: Detect CoreAI SDK
+        id: coreai
+        shell: bash
+        run: |
+          sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+          if [[ -d "$sdk_path/System/Library/Frameworks/CoreAI.framework" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::The hosted image does not yet include the Xcode 27 CoreAI SDK; manifest and formatting checks still ran."
+          fi
+
+      - name: Run unit tests
+        if: steps.coreai.outputs.available == 'true'
+        run: swift test
+
+      - name: Build generic iOS target
+        if: steps.coreai.outputs.available == 'true'
+        run: >-
+          xcodebuild build
+          -scheme NemotronCoreAI
+          -destination 'generic/platform=iOS'
+          CODE_SIGNING_ALLOWED=NO
+
