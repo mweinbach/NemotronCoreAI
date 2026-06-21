@@ -20,14 +20,51 @@ under the model's OpenMDW-1.1 license.
 dependencies: [
     .package(
         url: "https://github.com/mweinbach/NemotronCoreAI.git",
-        from: "0.1.0"
+        from: "0.2.0"
     )
 ]
 ```
 
-Add `NemotronCoreAI` to the application target, then provide a local model
-package directory containing `package-manifest.json`, `runtime-support.json`,
-and either a matching `.aimodelc` or source `.aimodel`.
+Add `NemotronCoreAI` to the application target. The package can detect the
+current CoreAI device architecture, fetch only its matching model from Hugging
+Face, verify it, and reuse it from the local cache.
+
+## Managed model loading
+
+The common path is one call:
+
+```swift
+let session = try await NemotronCoreAI.loadSession(
+    computePreference: .gpu,
+    downloadProgress: { progress in
+        print(progress.phase, progress.fractionCompleted ?? 0)
+    }
+)
+```
+
+The default published model is pinned to a validated Hugging Face revision.
+`AIModel.deviceArchitectureName` and the current OS select the exact AOT
+artifact. Only `package-manifest.json`, `runtime-support.json`, and that one
+`.aimodelc` are downloaded. If no matching AOT artifact exists, the manager
+downloads the portable 320 ms source model instead. A runtime AOT load failure
+also triggers a verified source fallback by default.
+
+Models are cached under the app's purgeable Caches directory. Prefetch or clear
+that cache explicitly with:
+
+```swift
+let model = try await NemotronModelManager.shared.prepareModel()
+print(model.packageURL, model.cacheHit)
+
+try await NemotronModelManager.shared.removeAllCachedModels()
+```
+
+Pass `cacheDirectory` to either API if the app should use an Application
+Support location instead. Use `cachePolicy: .reloadIgnoringCache` to refresh a
+mutable revision, and `authorizationToken` for a private Hugging Face model.
+The downloader reports byte-level progress and validates advertised file sizes,
+LFS SHA-256 hashes, runtime metadata, and the CoreAI `main.hash` before making a
+staged package visible to the app.
 
 ## Live streaming
 
@@ -35,7 +72,6 @@ and either a matching `.aimodelc` or source `.aimodel`.
 import NemotronCoreAI
 
 let session = try await NemotronCoreAI.loadSession(
-    packageURL: modelPackageURL,
     latencyMS: 320,
     computePreference: .gpu
 )
@@ -111,7 +147,19 @@ hf download mweinbach/nemotron-3.5-asr-streaming-0.6b-coreai \
 
 Use `h18p` and `aot/ios/gpu/` for iPhone 17, iPhone Air, and iPhone 17 Pro.
 Applications shipping large artifacts should use Background Assets or their
-own download layer rather than embedding every architecture in the app.
+own prefetch lifecycle when they need downloads to continue while suspended.
+The managed loader intentionally stores one device-specific artifact rather
+than embedding every architecture in the app.
+
+For a fully offline or pre-bundled deployment, pass a package directory
+directly:
+
+```swift
+let session = try await NemotronCoreAI.loadSession(
+    packageURL: modelPackageURL,
+    computePreference: .gpu
+)
+```
 
 ## CLI
 

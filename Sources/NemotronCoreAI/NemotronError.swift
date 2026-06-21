@@ -4,6 +4,8 @@ public enum NemotronError: Error, LocalizedError, Sendable {
     case invalidPackage(String)
     case invalidRuntimeSupport(String)
     case modelAssetUnavailable(String)
+    case modelDownload(String)
+    case insufficientStorage(required: Int64, available: Int64)
     case modelLoadFailed(aot: String?, source: String)
     case missingFunction(String)
     case inference(String)
@@ -20,6 +22,10 @@ public enum NemotronError: Error, LocalizedError, Sendable {
             "Invalid runtime support: \(message)"
         case .modelAssetUnavailable(let message):
             "Model asset unavailable: \(message)"
+        case .modelDownload(let message):
+            "Model download failed: \(message)"
+        case .insufficientStorage(let required, let available):
+            "Insufficient storage for model download: \(required) bytes required, \(available) bytes available"
         case .modelLoadFailed(let aot, let source):
             if let aot {
                 "AOT model load failed (\(aot)); source fallback also failed (\(source))"

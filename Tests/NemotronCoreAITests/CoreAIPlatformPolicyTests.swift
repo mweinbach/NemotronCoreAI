@@ -21,4 +21,15 @@ final class CoreAIPlatformPolicyTests: XCTestCase {
             .neuralEngine
         )
     }
+
+    func testCurrentDeviceTargetUsesCoreAIRuntimeIdentity() {
+        let target = NemotronDeviceTarget.current
+        #if os(macOS)
+        XCTAssertEqual(target.platform, .macOS)
+        #else
+        XCTAssertEqual(target.platform, .iOS)
+        #endif
+        XCTAssertEqual(target.architecture, AIModel.deviceArchitectureName)
+        XCTAssertFalse(target.architecture.isEmpty)
+    }
 }

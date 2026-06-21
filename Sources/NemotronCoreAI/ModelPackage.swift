@@ -72,7 +72,7 @@ public struct NemotronPackageManifest: Codable, Sendable, Equatable {
 }
 
 public struct ResolvedModelAsset: Sendable, Equatable {
-    public enum Kind: String, Sendable {
+    public enum Kind: String, Sendable, Equatable {
         case aheadOfTime = "aot-320ms-gpu"
         case source
     }
